@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html>
+
+	<head>
+		<meta charset="UTF-8">
+		<title>轮播图表单</title>
+		<meta name="renderer" content="webkit">
+		<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+		<link rel="stylesheet" href="../../../layuiadmin/layui/css/layui.css" media="all">
+		<link rel="stylesheet" href="../../../layuiadmin/style/iconfont/iconfont.css" media="all">
+		<link rel="stylesheet" href="../../../layuiadmin/style/cropper.css" media="all">
+		<style type="text/css">
+			#img-box {
+				display: none;
+				margin-top: 10px;
+				position: relative;
+				box-sizing: border-box;
+				max-width: 150px;
+				height: auto;
+				max-height: 100px;
+				text-align: center;
+				overflow: hidden;
+			}
+			#img-box img {
+				width: 100%;
+				height: 100%;
+			}
+			
+			.img-load-container {
+				position: relative;
+				display: inline-block;
+			}
+			.img-load-container > input {
+				position: absolute;
+				left: 0;
+				top: 0;
+				width: 100%;
+				height: 100%;
+				opacity: 0;
+				z-index: 3;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div class="layui-form" lay-filter="layuiadmin-form-role" id="layuiadmin-form-role" style="padding: 20px 30px 0 0;"> </div>
+		<script type="text/html" id="powerForm">
+			<form class="layui-form" action="" lay-filter="formInp">
+				<div class="layui-form-item">
+					<label class="layui-form-label">排序</label>
+					<div class="layui-input-inline">
+						<input class="layui-input" required lay-verify="required" name="sort" type="text" maxlength="2">
+					</div>
+				</div>
+                <div class="layui-form-item">
+					<label class="layui-form-label">图片</label>
+					<div class="layui-input-inline">
+						<div class="img-load-container">
+							<button type="button" class="layui-btn">
+							  	<i class="layui-icon">&#xe67c;</i><span>上传图片</span>
+							</button>
+							<input type="file" name="image" id="pickfiles"/>
+							<input type="hidden" name="img_url"  required lay-verify="urlRequired" id="urlBox"/>
+						</div>
+						<div id="img-box">
+							<img src=""/>
+						</div>
+					</div>
+				</div>
+				<div class="layui-form-item">
+					<label class="layui-form-label">跳转链接</label>
+					<div class="layui-input-block">
+						<input class="layui-input" name="url" type="text">
+					</div>
+				</div>
+				<div class="layui-form-item">
+					<label class="layui-form-label">描述</label>
+					<div class="layui-input-block">
+						<textarea name="info" required lay-verify="required" class="layui-textarea" style="resize: none;" placeholder="请输入描述"></textarea>
+					</div>
+				</div>
+				<div class="layui-form-item layui-hide">
+					<button type="button" class="layui-btn" lay-submit id="formDemo" lay-filter="formDemo">立即提交</button>
+				</div>
+			</form>
+		</script>
+		
+		<script src="../../../layuiadmin/layui/layui.js"></script>
+		<script type="text/javascript">
+			//layui
+			layui.config({
+				base: '../../../layuiadmin/' //静态资源所在路径
+			}).extend({
+				index: 'lib/index' //主入口模块
+			}).use(['index', 'form', 'localMethods','croppers'], function() {
+				var $ = layui.$,
+					form = layui.form,
+					laytpl = layui.laytpl,
+					admin = layui.admin,
+					setter = layui.setter,
+					croppers = layui.croppers,
+					lFuns = layui.localMethods;
+				
+				var id = lFuns.getUrlParam("id"); //编辑有type
+				tplLoad();
+				//变更上传
+				$("#pickfiles").on('change',function(){
+					var that = this;
+					var files = lFuns.uploadImgFn(that);
+					if(files){
+						var formData = new FormData();
+                    	formData.append("token",layui.data("userInfo").token);
+						var name = 'time_' + new Date().getTime() + files.name;
+						files.name = name;
+						formData.append("image",files);
+						admin.req({
+							url: setter.apiurl + '/Auth/send_img',
+							type: "post",
+							data: formData,
+							dataType: 'json',
+	                        processData: false,
+	                        contentType: false,
+							done: function(res) {
+								if(res.data){
+									var links = res.data;
+									$("#img-box > img").attr("src",links);
+									$("#urlBox").val(links);
+									$("#img-box").show();
+									layer.msg(res.msg,{icon:1});
+								}else{
+									layer.msg(res.msg);
+								}
+							}
+						});
+					}
+				})
+				
+				//模板加载
+				function tplLoad(){
+					var selectData = {};
+					var getTpl = powerForm.innerHTML,
+						view = document.getElementById('layuiadmin-form-role');
+					laytpl(getTpl).render(selectData, function(html) {
+						view.innerHTML = html;
+					});
+					if(id) {
+						setFormVal();
+					}
+					form.render(null, 'formInp');
+					//开始图片上传
+				}
+				
+				//设值
+				function setFormVal(){
+					admin.req({
+						url: setter.apiurl + '/Banner/get_one',
+						type: "post",
+						data: {
+							id: id,
+						},
+						dataType: "json",
+						done: function(res) {
+							if(res.status==1){
+								var _data = res.data;
+								form.val("formInp", {
+									"position": _data.position,
+									"img_url": _data.img_url,
+									"sort": _data.sort,
+									"url": _data.url,
+									"info": _data.info,
+								})
+								$("#img-box > img").attr("src",_data.img_url);
+								$("#img-box").show();
+								form.render(null, 'formInp');
+							}else{
+								layui.layer.msg(res.msg)
+							}
+						}
+					})
+				}
+				
+				//表单验证
+				form.verify({
+					urlRequired:[/[\S]+/,"图片不能为空"],
+				});
+			})
+		</script>
+	</body>
+
+</html>

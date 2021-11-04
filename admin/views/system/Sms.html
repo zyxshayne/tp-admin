@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+
+<html>
+
+	<head>
+		<meta charset="utf-8">
+		<title>微信模板回复</title>
+		<meta name="renderer" content="webkit">
+		<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+		<link rel="stylesheet" href="../../layuiadmin/layui/css/layui.css" media="all">
+		<link rel="stylesheet" href="../../layuiadmin/style/admin.css" media="all">
+	</head>
+
+	<body>
+
+		<div class="layui-fluid">
+			<div class="layui-card">
+				<div class="layui-card-body">
+					<table id="mysql-table" lay-filter="mysql-table"></table>
+				</div>
+			</div>
+		</div>
+
+		<script type="text/html" id="toolbarDemo">
+			<div class="layui-btn-container">
+				<button class="layui-btn layui-btn-sm" lay-event="addData">新增</button>
+				<button class="layui-btn layui-btn-sm" lay-event="delData">删除选中数目</button>
+			</div>
+		</script>
+		<script type="text/html" id="edit-table">
+			{{# if(d.status==1){ }}
+				<a class="layui-btn layui-btn-disabled layui-btn-xs">已启用</a>
+			{{# }else{ }}
+				<a class="layui-btn layui-btn-xs" lay-event="open">启用</a>
+			{{# } }}
+			<a class="layui-btn layui-btn-normal layui-btn-xs" lay-event="template">模板设置</a>
+			<a class="layui-btn layui-btn-normal layui-btn-xs" lay-event="edit">编辑</a>
+			<a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="del">删除</a>
+		</script>
+		<script src="../../layuiadmin/layui/layui.js"></script>
+		<script>
+			layui.config({
+				base: '../../layuiadmin/' //静态资源所在路径
+			}).extend({
+				index: 'lib/index' //主入口模块
+			}).use(['index', 'table'], function() {
+				var $ = layui.$,
+					setter = layui.setter,
+					admin = layui.admin,
+					form = layui.form,
+					table = layui.table;
+
+				roleLoad();
+				//角色信息加载
+				function roleLoad() {
+					table.render({
+						elem: '#mysql-table',
+						url: layui.setter.apiurl + '/Sms/get_all', //模拟接口
+						method: 'post',
+						checkbox: true,
+						where: {
+							token: layui.data('userInfo').token
+						},
+						page: true,
+						toolbar: '#toolbarDemo',
+						cols: [
+							[{
+								type: 'checkbox',
+								fixed: 'left'
+							}, {
+								field: 'id',
+								title: 'ID',
+								width: 100,
+
+							}, {
+								field: 'name',
+								minWidth: 200,
+								title: '接口服务商'
+							}, {
+								field: 'user',
+								minWidth: 200,
+								title: '短信帐号'
+							}, {
+								field: 'signname',
+								minWidth: 200,
+								title: '短信签名'
+							}, {
+								field: 'create_time',
+								title: '添加时间',
+								width: 200,
+							}, {
+								field: 'update_time',
+								title: '修改时间',
+								width: 200,
+								templet: function(data){
+									return data.update_time?data.update_time:"暂无修改"
+								}
+							}, {
+								title: '操作',
+								width: 250,
+								align: 'center',
+								fixed: 'right',
+								toolbar: '#edit-table'
+							}]
+						],
+					});
+				}
+
+				//头工具栏事件
+				table.on('toolbar(mysql-table)', function(obj) {
+					var checkStatus = table.checkStatus(obj.config.id);
+					switch(obj.event) {
+						//新增
+						case 'addData':
+							var handleData = {
+								title: '新增短信',
+							};
+							handleRole(handleData);
+							break;
+							//多选删除
+						case 'delData':
+							var data = checkStatus.data;
+							if(data.length < 1) {
+								layer.msg('您还没有选中条目');
+							} else {
+								var arr = [];
+								var name_arr = [];
+								for(var i = 0; i < data.length; i++) {
+									arr.push(data[i].id);
+									name_arr.push(data[i].name)
+								}
+								var ids = arr.join(',');
+								var name = name_arr.join(',');
+								var newData = {
+									id: ids,
+									name:name
+								};
+								delRole(newData);
+							}
+							break;
+					};
+				});
+
+				table.on('tool(mysql-table)', function(obj) {
+					var lineData = obj.data,
+						layEvent = obj.event;
+					switch(layEvent) {
+						//编辑
+						case 'edit':
+							var handleData = {
+								id: lineData.id,
+								title: '编辑短信',
+							};
+							handleRole(handleData);
+							break;
+						//删除
+						case 'del':
+							var newData = {
+								id: lineData.id,
+								name: lineData.name,
+							};
+							delRole(newData);
+							break;
+						//启用
+						case 'open':
+							var newData = { 
+								id: lineData.id
+							};
+							openSms(newData);
+							break;
+						//模板
+						case 'template':
+							var handleData = {
+								id: lineData.id
+							};
+							setTemplate(handleData,lineData.name);
+							break;
+					};
+				});
+
+				//短信接口(新增,编辑)
+				function handleRole(_data) {
+					var url = 'form/SmsForm.html';
+					if(_data.id) {
+						url += '?id=' + _data.id;
+					}
+					layer.open({
+						type: 2,
+						title: _data.title,
+						btnAlign: 'r',
+						btn: ['确定', '取消'],
+						area: ['500px', '400px'],
+						content: url,
+						yes: function(index, layero) {
+							//按钮【按钮一】的回调
+							var iframeWindow = window['layui-layer-iframe' + index],
+								submit = layero.find('iframe').contents().find("#formDemo");
+							//监听提交
+							iframeWindow.layui.form.on('submit(formDemo)', function(data) {
+								var field = data.field; //获取提交的字段
+								//id
+								if(_data.id) {
+									field.id = _data.id;
+								}
+								//提交 Ajax 成功后，静态更新表格中的数据
+								admin.req({
+									url: setter.apiurl + '/Sms/add_update',
+									type: "post",
+									data: field,
+									dataType: "json",
+									done: function(res) {
+										layer.msg(res.msg);
+										if(res.status==1){
+											layer.close(index); //关闭弹层
+											//刷新当前框架
+											roleLoad();
+										}
+									}
+								})
+							})
+							submit.trigger('click');
+						}
+					})
+				}
+
+				//删除短信
+				function delRole(_data) {
+					layer.confirm('是否确认删除?删除后无法撤回！', {
+						icon: 3,
+						title: '提示'
+					}, function(index) {
+						admin.req({
+							url: setter.apiurl + '/Sms/del',
+							type: "post",
+							data: _data,
+							dataType: "json",
+							done: function(res) {
+								layer.msg(res.msg);
+								if(res.status==1){
+									//刷新当前框架
+									roleLoad();
+								}
+							}
+						})
+					});
+				}
+				
+				//启用短信
+				function openSms(_data) {
+					layer.confirm('是否确认启用?启用后将停止当前启用的短信接口！', {
+						icon: 3,
+						title: '提示'
+					}, function(index) {
+						admin.req({
+							url: setter.apiurl + '/Sms/open_sms',
+							type: "post",
+							data: _data,
+							dataType: "json",
+							done: function(res) {
+								layer.msg(res.msg);
+								if(res.status==1){
+									//刷新当前框架
+									roleLoad();
+								}
+							}
+						})
+					});
+				}
+				
+				//模板设置
+				function setTemplate(_data,_txt) {
+					var url = 'SmsTemplate.html?id=' + _data.id;
+					layer.open({
+						type: 2,
+						title: "模板设置 >"+_txt,
+						area: ['100%', '100%'],
+						content: url,
+					})
+				}
+			});
+		</script>
+	</body>
+
+</html>

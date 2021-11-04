@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+
+<html>
+
+	<head>
+		<meta charset="utf-8">
+		<title>登入 - 管理系统</title>
+		<meta name="renderer" content="webkit">
+		<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+		<link rel="shortcut icon" href="../layuiadmin/style/res/favicon.ico" type="image/x-icon">
+		<link rel="stylesheet" href="../layuiadmin/layui/css/layui.css" media="all">
+		<link rel="stylesheet" href="../layuiadmin/layui/css/xx_login.css" />
+	</head>
+
+	<body>
+		<div class="mask"></div>
+		<div class="main">
+			<h1 id="h1"><span style="font-size: 84px;">WELLCOME</span><span style="font-size:30px;"></span></h1>
+			<p id="time"></p>
+			<div onclick="javascript:login()" class="enter">
+				Please&nbsp;&nbsp;Click&nbsp;&nbsp;Enter
+			</div>
+		</div>
+		<div class="loginarea" style="display: none;">
+			<form id="LAY-user-login" class="layui-form" action="">
+				<div class="layui-form-item">
+					<!--<label class="layui-form-label">账号</label>-->
+					<div class="layui-input-inline pm-login-input">
+						<input type="text" name="username" lay-verify="required"  value="admin" placeholder="请输入账号" autocomplete="off" class="layui-input">
+					</div>
+				</div>
+				<div class="layui-form-item">
+					<!--<label class="layui-form-label">密码</label>-->
+					<div class="layui-input-inline pm-login-input">
+						<input type="password" name="password" lay-verify="required" value="123456" placeholder="请输入密码" class="layui-input">
+					</div>
+				</div>
+				<div class="layui-form-item">
+					<!--<label class="layui-form-label">人机验证</label>-->
+					<div class="layui-input-block xx-code-area">
+						<input type="text" lay-verify="required|code" autocomplete="off" name="captcha" class="layui-input" placeholder="请输入验证码" />
+                        <img onclick="getCaptcha()" src="" width="190px" height="40px" style="padding-top: 15px" class="login-captcha" alt="点击刷新验证码"/>
+<!--						<canvas id="canvas" class="code" width="98" height="36"></canvas>-->
+                        <input type="hidden"  autocomplete="off"  name="key" class="layui-input" />
+					</div>
+				</div>
+				<div class="layui-form-item" style="margin-top:25px;margin-bottom:0;">
+					<div class="layui-input-block">
+						<button class="layui-btn" lay-submit lay-filter="LAY-login-submit" style="width:190px;">立即登录</button>
+					</div>
+				</div>
+			</form>
+		</div>
+<script src="../layuiadmin/layui/layui.js"></script>
+<script src="../../../layuiadmin/plugin/jquery-1.9.1.min.js" type="text/javascript" charset="utf-8"></script>
+<script type="text/javascript">
+			var show_num = [];
+			layui.config({
+				base: '../../layuiadmin/', //静态资源所在路径
+				nurl: '../../views/' //模版所在路径
+			}).extend({
+				index: 'lib/index' //主入口模块
+			}).use(['index', 'user'], function() {
+				var $ = layui.$,
+					setter = layui.setter,
+					admin = layui.admin,
+					form = layui.form;
+				getCaptcha();
+				//提交
+				form.on('submit(btn-submit)', function(obj) {
+					//请求登入接口
+					$.ajax({
+						url: layui.setter.apiurl+'/admin/auth/login',
+						data: obj.field,
+						type: "post",
+						dataType: "json",
+						success: function(res) {
+                            if(res.code == 1){
+                                //请求成功后，储存token
+                                layui.data(setter.tableName, {
+                                    key: 'Authorization',
+                                    value: res.data.token_type+' '+res.data.access_token,
+                                });
+                                //登入成功的提示与跳转
+                                layer.msg(res.msg, {
+                                    offset: '15px',
+                                    icon: 1,
+                                    time: 1000
+                                }, function() {
+                                    location.href = '../'; //后台主页
+                                });
+                            }else{
+                                //登入失败
+                                layer.msg(res.msg, {
+                                    offset: '15px',
+                                    icon: 2,
+                                    time: 1000
+                                }, function() {
+                                    getCaptcha();
+                                });
+                            }
+                        }
+					});
+
+					return false;
+				});
+
+				$('body').keydown(function(e) {
+					if(e.keyCode == 13) {
+						if($('#layer-login').length <= 0) {
+							login();
+						} else {
+							$('button[lay-filter=login]').click();
+						}
+					}
+				});
+			});
+
+			function login() {
+				var $ = layui.jquery;
+				$(".enter").hide();
+				var str = $(".loginarea").html();
+				layer.open({
+					id: 'layer-login',
+					type: 1,
+					title: false,
+					shade: 0.4,
+					shadeClose: true,
+					area: ['480px', '320px'],
+					closeBtn: 0,
+					anim: 1,
+					skin: 'xx-layer-login',
+					content: str,
+					success: function(layero, index) {
+                        $(".xx-layer-login .layui-form").attr("id", "lay-submit");
+                        $(".xx-layer-login .layui-form").attr("lay-filter", "lay-submit");
+                        $(".xx-layer-login .layui-btn").attr("id", "btn-submit");
+                        $(".xx-layer-login .layui-btn").attr("lay-filter", "btn-submit");
+						layui.form.render(null, 'lay-submit');
+					},
+					end: function(){
+					  	$(".enter").show();
+					}
+				});
+			}
+
+			function getCaptcha(){
+                $.ajax({
+                    type:'get',
+                    dataType: 'json',
+                    url: layui.setter.apiurl+'/admin/auth/captcha?math='+Math.random(),
+                    success: function (res) {
+                        if(res.code!=1){
+                            layer.msg("获取验证码失败",{time:2000});
+                        }else{
+
+                            $(".login-captcha").attr('src',res.data.src);
+                            $("input[name=key]").attr('value',res.data.key);
+                        }
+                    }
+                });
+            }
+		</script>
+		<script type="text/javascript">
+			function systemTime() {
+				//获取系统时间。
+				var dateTime = new Date();
+				var year = dateTime.getFullYear();
+				var month = dateTime.getMonth() + 1;
+				var day = dateTime.getDate();
+				var hh = dateTime.getHours();
+				var mm = dateTime.getMinutes();
+				var ss = dateTime.getSeconds();
+
+				//分秒时间是一位数字，在数字前补0。
+				mm = extra(mm);
+				ss = extra(ss);
+
+				//将时间显示到ID为time的位置，时间格式形如：19:18:02
+				document.getElementById("time").innerHTML = year + "年 " + month + "月 " + day + "日 " + hh + " : " + mm + " : " + ss;
+				//每隔1000ms执行方法systemTime()。
+				setTimeout("systemTime()", 1000);
+			}
+
+			//补位函数。
+			function extra(x) {
+				//如果传入数字小于10，数字前补一位0。
+				if(x < 10) {
+					return "0" + x;
+				} else {
+					return x;
+				}
+			}
+			systemTime();
+		</script>
+	</body>
+
+</html>

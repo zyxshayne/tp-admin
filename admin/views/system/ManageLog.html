@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+
+<html>
+
+	<head>
+		<meta charset="utf-8">
+		<title>管理员管理</title>
+		<meta name="renderer" content="webkit">
+		<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+		<link rel="stylesheet" href="../../layuiadmin/layui/css/layui.css" media="all">
+		<link rel="stylesheet" href="../../layuiadmin/style/admin.css" media="all">
+	</head>
+
+	<body>
+
+  <div class="layui-fluid">
+    <div class="layui-card">
+      <div class="layui-card-header">条件筛选</div>
+      <div class="layui-card-body">
+        <form class="layui-form layuiadmin-card-header-auto">
+          <div class="layui-form-item">
+            <div class="layui-inline">
+							<label class="layui-form-label">操作消息</label>
+							<div class="layui-input-inline">
+								<input type="text" placeholder="请输入操作消息" class="layui-input info">
+							</div>
+						</div>
+
+            <div class="layui-inline">
+              <label class="layui-form-label">管理员名称</label>
+              <div class="layui-input-inline">
+                <input type="text" placeholder="请输入操作消息" class="layui-input name">
+              </div>
+            </div>
+
+            <div class="layui-inline">
+              <button type="submit" class="layui-btn layuiadmin-btn-list search-table" lay-submit lay-filter="LAY-app-contlist-search">
+                <i class="layui-icon layui-icon-search layuiadmin-button-btn"></i> 搜索
+              </button>
+              <button type="reset" class="layui-btn layuiadmin-btn-list layui-btn-primary reset-table">
+                <i class="layui-icon layui-icon-refresh-3 layuiadmin-button-btn"></i> 重置
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="layui-fluid">
+    <div class="layui-card">
+      <div class="layui-card-body m-head-imgurl">
+        <table id="table" lay-filter="table"></table>
+      </div>
+    </div>
+  </div>
+		
+		<script type="text/html" id="toolbarDemo">
+		  	<div class="layui-btn-container">
+			    <button class="layui-btn layui-btn-sm" lay-event="delData">清空日志</button>
+		  	</div>
+		</script>
+		<script src="../../layuiadmin/layui/layui.js"></script>
+		<script>
+			layui.config({
+				base: '../../layuiadmin/' //静态资源所在路径
+			}).extend({
+				index: 'lib/index' //主入口模块
+			}).use(['index', 'table'], function() {
+				var $ = layui.$,
+					setter = layui.setter,
+					admin = layui.admin,
+					table = layui.table
+
+        var obj = {
+          token: layui.data('userInfo').token
+        };
+
+        //条件筛选
+        $('.search-table').click(function () {
+          obj.info = $('.info').val();
+          obj.name = $('.name').val();
+          roleLoad(obj);
+          return false;
+        });
+
+				roleLoad(obj);
+				//管理员信息加载
+				function roleLoad(_data){
+					table.render({
+						elem: '#table',
+						url: layui.setter.apiurl + '/ManageLog/get_all', //模拟接口
+						method: 'post',
+						checkbox: true,
+						where: _data,
+						page: true,
+						toolbar: '#toolbarDemo',
+						cols: [
+								[{
+									field: 'id',
+									title: 'ID',
+									width: 100,
+								},{
+									field: 'name',
+									title: '管理员名称',
+									minWidth: 200,
+									
+								}, {
+									field: 'ip',
+									minWidth: 150,
+									title: 'ip'
+								},{
+									field: 'info',
+									minWidth: 200,
+									title: '操作消息'
+								}, {
+									field: 'create_time',
+									title: '时间',
+									width: 200
+								}]
+							],
+					});
+				}
+				
+				//头工具栏事件
+				table.on('toolbar(table)', function(obj){
+				    switch(obj.event){
+				      	//清空
+				      	case 'delData':
+				        	admin.req({
+								url: setter.apiurl + '/ManageLog/del',
+								type: "post",
+								dataType: "json",
+								done: function(res) {
+									layer.msg(res.msg);
+									if(res.status==1){
+										//刷新当前框架
+										roleLoad(obj);
+									}
+								}
+							})
+			      		break;
+				    };
+				});
+			});
+		</script>
+	</body>
+
+</html>

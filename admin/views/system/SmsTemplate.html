@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+
+<html>
+
+	<head>
+		<meta charset="utf-8">
+		<title>短信模板</title>
+		<meta name="renderer" content="webkit">
+		<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+		<link rel="stylesheet" href="../../layuiadmin/layui/css/layui.css" media="all">
+	</head>
+
+	<body>
+		<div class="layui-card-body">
+			<table id="table-details" lay-filter="table-details"></table>
+		</div>
+		
+		<script src="../../layuiadmin/layui/layui.js"></script>
+		<script type="text/html" id="toolbarDemo">
+			<div class="layui-btn-container">
+				<button class="layui-btn layui-btn-sm" lay-event="addData">新增</button>
+				<button class="layui-btn layui-btn-sm" lay-event="delData">删除选中数目</button>
+			</div>
+		</script>
+		<script type="text/html" id="edit-table">
+			<a class="layui-btn layui-btn-normal layui-btn-xs" lay-event="edit">编辑</a>
+			<a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="del">删除</a>
+		</script>
+		<script>
+			layui.config({
+				base: '../../../layuiadmin/' //静态资源所在路径
+			}).extend({
+				index: 'lib/index' //主入口模块
+			}).use(['index', 'table', 'localMethods'], function() {
+				var $ = layui.$,
+					admin = layui.admin,
+					table = layui.table,
+					setter = layui.setter,
+					lFuns = layui.localMethods;
+
+				var id = lFuns.getUrlParam("id");
+				
+				roleLoad();
+				//加载数据
+				function roleLoad(){
+					table.render({
+						elem: '#table-details',
+						url: layui.setter.apiurl + '/SmsTpl/get_all', //模拟接口
+						checkbox: true,
+						method: 'post',
+						where: {
+							token: layui.data('userInfo').token,
+							sid: id
+						},
+						page: true,
+						toolbar: '#toolbarDemo',
+						cols: [
+								[{
+									type: 'checkbox',
+									fixed: 'left'
+								},{
+									field: 'id',
+									title: 'id',
+									width: 60,
+								}, {
+									field: 'name',
+									title: '名称'
+								}, {
+									field: 'title',
+									title: '接口服务商',
+								}, {
+									field: 'info',
+									title: '介绍',
+								}, {
+									field: 'type',
+									title: '类型',
+								}, {
+									field: 'create_time',
+									title: '创建时间',
+								},{
+									field: 'update_time',
+									title: '更新时间',
+									templet: '<div>{{d.update_time?d.update_time:"暂无更新"}}</div>'
+								},{
+									title: '操作',
+									width: 120,
+									align: 'center',
+									fixed: 'right',
+									toolbar: '#edit-table'
+								}]
+							],
+					});
+				}
+				
+				//头工具栏事件
+				table.on('toolbar(table-details)', function(obj) {
+					var checkStatus = table.checkStatus(obj.config.id);
+					switch(obj.event) {
+						//新增
+						case 'addData':
+							var handleData = {
+								title: '新增模板',
+								sid: id,
+							};
+							handleRole(handleData);
+							break;
+						//多选删除
+						case 'delData':
+							var data = checkStatus.data;
+							if(data.length < 1) {
+								layer.msg('您还没有选中条目');
+							} else {
+								var arr = [],
+									arrType = [];
+								for(var i = 0; i < data.length; i++) {
+									arr.push(data[i].id);
+									arrType.push(data[i].type);
+								}
+								var ids = arr.join(',');
+								var types = arrType.join(',');
+								var newData = {
+									id: ids,
+									type: types
+								};
+								delRole(newData);
+							}
+							break;
+					};
+				});
+
+				table.on('tool(table-details)', function(obj) {
+					var lineData = obj.data,
+						layEvent = obj.event;
+					switch(layEvent) {
+						//编辑
+						case 'edit':
+							var handleData = {
+								id: lineData.id,
+								sid: lineData.sid,
+								title: '编辑模板',
+							};
+							handleRole(handleData);
+							break;
+						//删除
+						case 'del':
+							var newData = {
+								id: lineData.id,
+								type: lineData.type,
+							};
+							delRole(newData);
+							break;
+					};
+				});
+				
+				
+				//短信模板(新增,编辑)
+				function handleRole(_data) {
+					var url = 'form/SmsTemplatForm.html';
+					if(_data.id) {
+						url += '?id=' + _data.id;
+					}
+					layer.open({
+						type: 2,
+						title: _data.title,
+						btnAlign: 'r',
+						btn: ['确定', '取消'],
+						area: ['460px', '400px'],
+						content: url,
+						yes: function(index, layero) {
+							//按钮【按钮一】的回调
+							var iframeWindow = window['layui-layer-iframe' + index],
+								submit = layero.find('iframe').contents().find("#formDemo");
+							//监听提交
+							iframeWindow.layui.form.on('submit(formDemo)', function(data) {
+								var field = data.field; //获取提交的字段
+								//id
+								if(_data.id) {
+									field.id = _data.id;
+								}
+								if(_data.sid) {
+									field.sid = _data.sid;
+								}
+								//提交 Ajax 成功后，静态更新表格中的数据
+								admin.req({
+									url: setter.apiurl + '/SmsTpl/add_update',
+									type: "post",
+									data: field,
+									dataType: "json",
+									done: function(res) {
+										layer.msg(res.msg);
+										if(res.status==1){
+											layer.close(index); //关闭弹层
+											//刷新当前框架
+											roleLoad();
+										}
+									}
+								})
+							})
+							submit.trigger('click');
+						}
+					})
+				}
+				
+				//删除模板
+				function delRole(_data) {
+					layer.confirm('是否确认删除?删除后无法撤回！', {
+						icon: 3,
+						title: '提示'
+					}, function(index) {
+						admin.req({
+							url: setter.apiurl + '/SmsTpl/del',
+							type: "post",
+							data: _data,
+							dataType: "json",
+							done: function(res) {
+								layer.msg(res.msg);
+								if(res.status==1){
+									//刷新当前框架
+									roleLoad();
+								}
+							}
+						})
+					});
+				}
+				
+			})
+		</script>
+	</body>
+
+</html>

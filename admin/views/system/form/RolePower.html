@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+
+<html>
+
+	<head>
+		<meta charset="utf-8">
+		<title>角色权限选择</title>
+		<meta name="renderer" content="webkit">
+		<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+		<link rel="stylesheet" href="../../../layuiadmin/layui/css/layui.css" media="all">
+		<link rel="stylesheet" href="../../../layuiadmin/style/admin.css" media="all">
+		<style type="text/css">
+			.layui-form-label {
+				width: 140px;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div class="layui-fluid">
+			<div class="layui-card">
+				<div class="layui-card-body">
+					<div class="layui-form" lay-filter="layuiadmin-form-role" id="layuiadmin-form-role"> </div>
+				</div>
+			</div>
+		</div>
+
+		<script src="../../../layuiadmin/layui/layui.js"></script>
+		<script type="text/html" id="powerForm">
+			<form class="layui-form" lay-filter="formInp">
+				<div class="layui-form-item">
+					<label class="layui-form-label">全选</label>
+					<div class="layui-input-inline">
+						<input id="item-all" lay-filter="item-all" type="checkbox" title="全选" lay-skin="primary">
+					</div>
+				</div>
+				{{# 
+					layui.each(d,function(index,item){
+						if(item.child.length>0){
+				}}
+					<div class="layui-form-item">
+						<label class="layui-form-label">{{item.title}}</label>
+						<div class="layui-input-block">
+							{{# layui.each(item.child,function(childI,childItem){ }}
+								<input type="checkbox" name="power" title="{{childItem.title}}" value="{{childItem.id}}" lay-skin="primary">
+							{{# }) }}
+						</div>
+					</div>
+				{{# } }) }}
+				
+				<div class="layui-form-item layui-layout-admin">
+		            <div class="layui-input-block">
+		              <div class="layui-footer" style="left: 0;">
+		              	<button type="button" class="layui-btn" id="form-submit">确认提交</button>
+		                <button type="reset" class="layui-btn layui-btn-primary">重置</button>
+		              </div>
+		            </div>
+		        </div>
+			</form>
+		</script>
+		<script>
+			layui.config({
+				base: '../../../layuiadmin/' //静态资源所在路径
+			}).extend({
+				index: 'lib/index' //主入口模块
+			}).use(['index', 'form', 'localMethods'], function() {
+				var $ = layui.$,
+					form = layui.form,
+					laytpl = layui.laytpl,
+					admin = layui.admin,
+					setter = layui.setter,
+					lFuns = layui.localMethods;
+
+				var id = lFuns.getUrlParam("id"), //有ID是编辑 没有是添加
+					title = '',
+					checkArr = []; //选择数组
+				
+				admin.req({
+					url: setter.apiurl + '/AuthRule/get_all',
+					type: "post",
+					dataType: "json",
+					data: {
+						type: 1
+					},
+					done: function(res) {
+						var tableData = res.data;
+						tplRender(tableData);
+					}
+				})
+				
+				
+				function formSetVal(_data){
+					var arr = _data.rules.split(',');
+					var box = $('.layui-input-block input[name=power]');
+					
+					$('.layui-input-block input[name=power]').each(function(index, item){
+						if(box.length===arr.length){
+							$('#item-all').get(0).checked = true;
+							item.checked = true;
+						}else{
+							for(var i = 0;i<arr.length;i++){
+								if(item.value==arr[i]){
+									item.checked = true;
+								}
+							}
+						}
+		          	});
+					form.render();
+				}
+				
+				//模板加载
+				function tplRender(_data) {
+					var getTpl = powerForm.innerHTML,
+						view = document.getElementById('layuiadmin-form-role');
+					laytpl(getTpl).render(_data, function(html) {
+						view.innerHTML = html;
+					});
+
+					form.render(null, 'formInp');
+					
+					if(id) {
+						//查询当前权限
+						admin.req({
+					  		url: layui.setter.apiurl + '/AuthGroup/get_one',
+					  		type: "post",
+					  		data: {
+					  			id: id
+					  		},
+					  		dataType: "json",
+					  		done: function(res) {
+					  			title = res.data.title;
+					  			formSetVal(res.data)
+					  		}
+					  	})
+					}
+					
+					//所有checkbox
+					var box = $(".layui-input-block input[type=checkbox]");
+					//单个选择
+					form.on('checkbox', function(data){
+						if(data.value!="on"){
+							checkArr = [];
+							$('.layui-input-block input[name=power]:checked').each(function(index, item){
+								checkArr.push(item.value);
+				          	});
+				          	if(checkArr.length==box.length){
+				          		$('#item-all').get(0).checked = true;
+				          	}else{
+				          		$('#item-all').get(0).checked = false;
+				          	}
+							form.render();
+						}
+					});
+					
+					//确认提交
+			      	$("#form-submit").on('click',function(){
+						var data = checkArr.join(',');
+			      		admin.req({
+			      			url: setter.apiurl + '/AuthGroup/set_rule',
+					  		type: "post",
+					  		data: {
+					  			id: id,
+					  			title: title,
+					  			rules: data
+					  		},
+					  		dataType: "json",
+					  		done: function(res) {
+					  			//关闭当前框架
+								var index = parent.layer.getFrameIndex(window.name);
+					  			parent.layer.close(index);
+					  		}
+			      		});
+			      	})
+				}
+				
+				//全选
+				form.on('checkbox(item-all)', function(data){
+		          	var id = data.value;
+		          	//这里实现勾选 
+		          	$('.layui-input-block input[type=checkbox]').each(function(index, item){
+		          		checkArr = [];
+		            	item.checked = data.elem.checked;
+		            	if(data.elem.checked){
+							$('.layui-input-block input[name=power]:checked').each(function(index, item){
+								checkArr.push(item.value);
+				          	});
+		            	}
+		          	});
+		          	form.render('checkbox');
+		        });
+			})
+		</script>
+	</body>
+
+</html>

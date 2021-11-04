@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+
+<html>
+
+	<head>
+		<meta charset="utf-8">
+		<title>权限管理</title>
+		<meta name="renderer" content="webkit">
+		<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+		<link rel="stylesheet" href="../../layuiadmin/layui/css/layui.css" media="all">
+		<!--<link rel="stylesheet" href="../../layuiadmin/style/admin.css" media="all">-->
+		<style type="text/css">
+			.hide {
+				display: none;
+			}
+			.layui-card-body .layui-table {
+				margin-top: 0;
+			}
+			.layui-table-tool {
+				width: auto;
+				border: 1px solid #e6e6e6;
+				border-bottom: none;
+			    box-sizing: border-box;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div class="layui-fluid">
+			<div class="layui-row layui-col-space15">
+				<div class="layui-col-md12">
+					<div class="layui-card">
+						<div class="layui-card-header">权限管理</div>
+						<div class="layui-card-body">
+							<div class="layui-table-tool">
+								<button class="layui-btn layui-btn-sm menu-add">添加</button>
+								<button class="layui-btn layui-btn-sm get-checked">删除选中数目</button>
+							</div>
+
+							<table class="layui-table layui-form" id="menu-tree-table" lay-filter="menu-tree-table"></table>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<script src="../../layuiadmin/layui/layui.js"></script>
+		<script>
+			layui.config({
+				base: '../../layuiadmin/' //静态资源所在路径
+			}).extend({
+				index: 'lib/index', //主入口模块
+			}).use(['index', 'table', 'treetable'], function() {
+				var $ = layui.jquery,
+					layer = layui.layer,
+					table = layui.table,
+					setter = layui.setter,
+					admin = layui.admin,
+					form = layui.form,
+					treetable = layui.treetable;
+
+				treeTableRender();
+				//树状菜单渲染
+				function treeTableRender() {
+					admin.req({
+						url: setter.apiurl + '/AuthRule/get_all',
+						type: "post",
+						dataType: "json",
+						done: function(res) {
+							var tableData = res.data;
+							loadTable(tableData);
+						}
+					})
+				}
+				
+				//treeTable
+				function loadTable(_data) {
+					var options = {
+						elem: '#menu-tree-table',
+						data: _data,
+						field: 'title',
+						is_checkbox: true,
+						space: 5, //调整图标显示距离
+						cols: [
+							{
+								field: 'id',
+								title: 'ID',
+								width: '60px'
+							},
+							{
+								field: 'title',
+								title: '权限名称',
+							},
+							{
+								title: '权限路径',
+								template: function(item) {
+									var tem = item.name;
+									if(!item.name){
+										tem = '暂无'
+									}
+									return tem
+								},
+							},
+							{
+								title: '权限类型',
+								template: function(item) {
+									var tem = '';
+									if(item.type == 1){
+										tem = '后台权限'
+									}
+									return tem
+								},
+							},
+							{
+								fixed: 'right',
+								title: '操作',
+								width: '150px',
+								align: 'center',
+								template: function(item) {
+									var tem = [];
+									if(item.pid == 0){
+										tem.push('<a class="layui-btn layui-btn-xs" lay-filter="add">添加子级</a>');
+										tem.push('<a class="layui-btn layui-btn-xs layui-btn-normal" lay-filter="oneEdit">编辑</a>');
+									}else{
+										tem.push('<a class="layui-btn layui-btn-xs layui-btn-normal" lay-filter="sonEdit">编辑</a>');
+									}
+									tem.push('<a class="layui-btn layui-btn-xs layui-btn-danger" lay-filter="remove">删除</a>');
+									return tem.join('')
+								},
+							},
+						]
+					};
+					treetable.render(options);
+
+					//添加子级权限
+					treetable.on('treetable(add)', function(data) {
+						var newData = {
+							title: '添加子级权限',
+							pid: data.item.id,
+						};
+						popShow(newData);
+					})
+					//一级权限编辑
+					treetable.on('treetable(oneEdit)', function(data) {
+						var newData = {
+							title: '编辑权限',
+							id: data.item.id,
+							iconType: 1,
+						};
+						popShow(newData);
+					})
+					//子级权限编辑
+					treetable.on('treetable(sonEdit)', function(data) {
+						var newData = {
+							title: '编辑权限',
+							id: data.item.id,
+							pid: data.item.pid
+						};
+						popShow(newData);
+					})
+					//子级菜单删除
+					treetable.on('treetable(remove)', function(data) {
+						var id = data.item.id,
+							title = data.item.title;
+
+						admin.req({
+							url: setter.apiurl + '/AuthRule/del',
+							data: {
+								id: id,
+								title: title
+							},
+							type: "post",
+							dataType: "json",
+							done: function(res) {
+								layer.msg(res.msg);
+								timeLoad();
+							}
+						})
+					})
+
+					//添加一级权限
+					$(".menu-add").on("click", function() {
+						var data = {
+							title: '添加一级权限',
+							iconType: 1,
+						};
+						popShow(data);
+					})
+
+					//删除选中
+					$('.get-checked').click(function() {
+						var check = treetable.all('checked');
+						if(check.ids.length < 1) {
+							layer.msg('您还没有选中条目');
+							return false;
+						}
+						layer.confirm('您确定删除当前选中条目吗？删除后无法撤销！', {
+							icon: 3,
+							title: '提示'
+						}, function(index) {
+							//do something
+							var ids = check.ids.join(',');
+							var data = check.data;
+							var title_arr = [];
+							for (var i=0;i<data.length;i++){
+								title_arr.push(data[i].name);
+							}
+							var title = title_arr.join(',');
+							//删除
+							admin.req({
+								url: setter.apiurl + '/AuthRule/del',
+								data: {
+									id: ids,
+									title:title
+								},
+								type: "post",
+								dataType: "json",
+								done: function(res) {
+									layer.msg(res.msg);
+									layer.close(index);
+									timeLoad();
+								}
+							})
+						});
+					})
+				}
+
+				//倒计时刷新
+				function timeLoad() {
+					setTimeout(function() {
+						location.reload();
+					}, 1000)
+				}
+
+				//一级菜单弹框
+				function popShow(_data) {
+					var url = 'form/PowerForm.html';
+					//当前id
+					if(_data.id) {
+						url += '?id=' + _data.id;
+					}
+					//如果是添加一级菜单
+					if(_data.iconType) {
+						if(_data.id) {
+							url += '&type=' + _data.iconType;
+						} else {
+							url += '?type=' + _data.iconType;
+						}
+					}
+
+					layer.open({
+						type: 2,
+						offset: '150px',
+						title: _data.title,
+						btnAlign: 'r',
+						btn: ['确定', '取消'],
+						area: ['460px', '400px'],
+						content: url,
+						yes: function(index, layero) {
+							//按钮【按钮一】的回调
+							var iframeWindow = window['layui-layer-iframe' + index],
+								submit = layero.find('iframe').contents().find("#formDemo");
+							//监听提交
+							iframeWindow.layui.form.on('submit(formDemo)', function(data) {
+								var field = data.field; //获取提交的字段
+								//父ID
+								if(_data.pid) {
+									field.arid = _data.pid;
+								}
+								//id
+								if(_data.id) {
+									field.id = _data.id;
+								}
+								//
+								if(field.type=="default"){
+									layer.msg("您没有选中权限类型");
+									return false;
+								}
+								if(!field.type){
+									field.type = 1;
+								}
+								//提交 Ajax 成功后，静态更新表格中的数据
+								admin.req({
+									url: setter.apiurl + '/AuthRule/add_update',
+									type: "post",
+									data: field,
+									dataType: "json",
+									done: function(res) {
+										layer.msg(res.msg);
+										layer.close(index); //关闭弹层
+
+										//刷新当前框架
+										timeLoad();
+									}
+								})
+							})
+							submit.trigger('click');
+							return false
+						}
+					})
+				}
+
+			});
+		</script>
+	</body>
+
+</html>

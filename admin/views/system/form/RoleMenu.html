@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+
+<html>
+
+	<head>
+		<meta charset="utf-8">
+		<title>角色权限选择</title>
+		<meta name="renderer" content="webkit">
+		<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+		<link rel="stylesheet" href="../../../layuiadmin/layui/css/layui.css" media="all">
+		<link rel="stylesheet" href="../../../layuiadmin/style/admin.css" media="all">
+		<style type="text/css">
+			.ml-reset {
+				margin-left: 20px;
+			}
+			.block-reset {
+				margin-left: 40px;
+				margin-bottom: 10px;
+			}
+			.label-reset {
+				padding: 0 15px;
+				width: 150px;
+				text-align: left;
+			}
+			.two-checkboxs {
+				margin-left: 180px;
+			}
+			.two-reset {
+				margin-left: 180px;
+			}
+			.layui-layer-title .layui-form-checkbox[lay-skin=primary] {
+				margin-top: 0;
+			}
+		</style>
+	</head>
+
+	<body>
+		<div class="layui-fluid">
+			<div class="layui-card">
+				<div class="layui-card-body">
+					<div class="layui-form" lay-filter="layuiadmin-form-role" id="layuiadmin-form-role" style="padding: 20px 30px 0 30px;"> </div>
+				</div>
+			</div>
+		</div>
+
+		<script src="../../../layuiadmin/layui/layui.js"></script>
+		<script type="text/html" id="powerForm">
+			<form class="layui-form" lay-filter="formInp">
+				<div class="layui-form-item">
+					<div class="layui-input-block ml-reset" >
+						<input id="item-all" lay-filter="item-all" type="checkbox" title="全选" lay-skin="primary">
+					</div>
+				</div>
+				{{# 
+					layui.each(d,function(index,item){
+						if(item.list.length>0){
+				}}
+					<div class="layui-form-item item-checkboxs" style="border: 1px solid #eee;">
+						<div class="layui-layer-title">
+							<input class="input-one" data-i="{{index}}" type="checkbox" name="one" title="{{item.title}}" value="{{item.id}}" lay-skin="primary">
+						</div>
+						<div class="layui-input-block block-reset one-checkboxs-{{item.id}}">
+						{{# layui.each(item.list,function(childI,childItem){ }}
+							<div class="layui-row">
+								<div class="layui-form-label label-reset">
+									<input class="input-hd" data-i="{{childI}}" data-pid="{{item.id}}" type="checkbox" name="two" title="{{childItem.title}}" value="{{childItem.id}}" lay-skin="primary">
+								</div>
+								<div class="layui-input-block two-reset two-checkboxs-{{childItem.id}}">
+								{{# layui.each(childItem.list,function(threeI,threeItem){ }}
+									<input type="checkbox" data-i="{{threeI}}" data-pid="{{childItem.id}}" name="three" title="{{threeItem.title}}" value="{{threeItem.id}}" lay-skin="primary">
+								{{# }) }}
+								</div>
+							</div>
+						{{# }) }}
+						</div>
+					</div>
+				{{# } }) }}
+				<div class="layui-form-item layui-layout-admin">
+		            <div class="layui-input-block">
+		              <div class="layui-footer" style="left: 0;">
+		              	<button type="button" class="layui-btn" id="form-submit">确认提交</button>
+		                <button type="reset" class="layui-btn layui-btn-primary">重置</button>
+		              </div>
+		            </div>
+		        </div>
+			</form>
+		</script>
+		<script>
+			layui.config({
+				base: '../../../layuiadmin/' //静态资源所在路径
+			}).extend({
+				index: 'lib/index' //主入口模块
+			}).use(['index', 'form', 'localMethods'], function() {
+				var $ = layui.$,
+					form = layui.form,
+					laytpl = layui.laytpl,
+					admin = layui.admin,
+					setter = layui.setter,
+					lFuns = layui.localMethods;
+
+				var id = lFuns.getUrlParam("id"), //有ID是编辑 没有是添加
+					title = '',
+					storageArr = [],
+					checkArr = []; //选择数组
+				
+				admin.req({
+					url: setter.apiurl + '/admin/Nav/index',
+					type: "post",
+					dataType: "json",
+					data: {
+						type: 1
+					},
+					done: function(res) {
+						var tableData = res.data;
+						storageArr = tableData;
+						tplRender(tableData);
+					}
+				})
+				
+				
+				function formSetVal(_data){
+					var arr = _data.navs.split(',');
+					var box = $('.item-checkboxs input[type=checkbox]');
+					$('.item-checkboxs input[type=checkbox]').each(function(index, item){
+						if(box.length===arr.length){
+							$('#item-all').get(0).checked = true;
+							item.checked = true;
+						}else{
+							for(var i = 0;i<arr.length;i++){
+								if(item.value==arr[i]){
+									item.checked = true;
+								}
+							}
+						}
+		          	});
+					form.render();
+				}
+				
+				//模板加载
+				function tplRender(_data) {
+					var getTpl = powerForm.innerHTML,
+						view = document.getElementById('layuiadmin-form-role');
+					laytpl(getTpl).render(_data, function(html) {
+						view.innerHTML = html;
+					});
+
+					form.render(null, 'formInp');
+					
+					if(id) {
+						//查询当前菜单
+						admin.req({
+					  		url: layui.setter.apiurl + '/admin/role/detail',
+					  		type: "post",
+					  		data: {
+					  			id: id
+					  		},
+					  		dataType: "json",
+					  		done: function(res) {
+					  			title = res.data.title;
+					  			checkArr = res.data.navs.split(",");
+					  			formSetVal(res.data)
+					  		}
+					  	})
+					}
+					
+					//所有checkbox
+					var box = $(".item-checkboxs input[type=checkbox]");
+					//单个选择
+					form.on('checkbox', function(data){
+						//判断不是全选按钮
+						if(data.value!="on"){
+							var allLen = $('.item-checkboxs input[type=checkbox]').length;
+							var checkBool=data.elem.checked;
+							switch (data.elem.name){
+								case 'one':
+									$('.one-checkboxs-'+data.value+' input[type=checkbox]').each(function(index, item){
+										item.checked = checkBool;
+						          	});
+						          	
+						          	//超级蠢的方法
+						          	var oneI = $(data.elem).data("i");
+									var son	= storageArr[oneI].list;
+									var thisNum = checkArr.indexOf(data.value);//当前值id索引
+									if(checkBool){
+										if(thisNum==-1){
+											checkArr.push(data.value);
+											//子菜单循环
+											sonMenu(son,checkBool);
+											var oneNum = checkArr.indexOf(JSON.stringify(onePid));//当前值Pid索引
+											if(oneCheckLen==0){
+												if(oneNum==-1){
+													checkArr.push(JSON.stringify(onePid));
+												}
+											}
+										}
+									}else{
+										if(thisNum>-1){
+											//删除当前值id
+											checkArr.splice(thisNum,1);
+											//子菜单循环
+											sonMenu(son,checkBool);
+											//判断同级
+											var oneNum = checkArr.indexOf(JSON.stringify(onePid));//当前值Pid索引
+											if(oneCheckLen==0){
+												if(oneNum>-1){
+													checkArr.splice(oneNum,1);
+												}
+											}
+										}
+									}
+						          	
+						          	var allCheckLen = $('.item-checkboxs input[type=checkbox]:checked').length;
+						          	if(allLen==allCheckLen){
+						          		$('#item-all').get(0).checked=true;
+						          	}else{
+						          		$('#item-all').get(0).checked=false;
+						          	}
+								break;
+								case 'two':
+									$('.two-checkboxs-'+data.value+' input[type=checkbox]').each(function(index, item){
+										item.checked = checkBool;
+						          	});
+						          	//一级
+						          	var onePid = $(data.elem).data("pid"),
+										oneLen = $('.one-checkboxs-'+onePid+' input[type=checkbox]').length,//所有同级的input
+										oneCheckLen = $('.one-checkboxs-'+onePid+' input[type=checkbox]:checked').length,//所有的同级为checkbox的input
+										oneElem = $('.one-checkboxs-'+onePid).prev().find(".input-one");//父元素
+									
+									//超级蠢的方法
+									var oneI = $(data.elem).parents(".item-checkboxs").find(".input-one").data("i"),
+										twoI = $(data.elem).data("i");
+										
+									var son	= storageArr[oneI].list[twoI].list;
+									var thisNum = checkArr.indexOf(data.value);//当前值id索引
+									if(checkBool){
+										if(thisNum==-1){
+											checkArr.push(data.value);
+											//子菜单循环
+											sonMenu(son,checkBool);
+											var oneNum = checkArr.indexOf(JSON.stringify(onePid));//当前值Pid索引
+											if(oneCheckLen>0){
+												if(oneNum==-1){
+													checkArr.push(JSON.stringify(onePid));
+												}
+											}
+										}
+									}else{
+										if(thisNum>-1){
+											//删除当前值id
+											checkArr.splice(thisNum,1);
+											//子菜单循环
+											sonMenu(son,checkBool);
+											//判断同级
+											var oneNum = checkArr.indexOf(JSON.stringify(onePid));//当前值Pid索引
+											if(oneCheckLen==0){
+												if(oneNum>-1){
+													checkArr.splice(oneNum,1);
+												}
+											}
+										}
+									}
+									
+									
+									if(oneLen==oneCheckLen){
+										oneElem.get(0).checked=true;
+										
+									}else{
+										oneElem.get(0).checked=false;
+									}
+									//全选
+									var allCheckLen = $('.item-checkboxs input[type=checkbox]:checked').length;
+									if(allLen==allCheckLen){
+						          		$('#item-all').get(0).checked=true;
+						          	}else{
+						          		$('#item-all').get(0).checked=false;
+						          	}
+						          	
+//						          	
+						          	
+								break;
+								case 'three':
+									//二级
+									var twoPid = $(data.elem).data("pid"),
+										twoLen = $('.two-checkboxs-'+twoPid+' input[type=checkbox]').length,//所有的二级下的input
+										twoCheckLen = $('.two-checkboxs-'+twoPid+' input[type=checkbox]:checked').length,//所有的二级下为checkbox的input
+										twoElem = $('.two-checkboxs-'+twoPid).prev().find(".input-hd");//二级元素
+										
+									if(twoLen==twoCheckLen){
+										twoElem.get(0).checked=true;
+									}else{
+										twoElem.get(0).checked=false;
+									}
+									
+									
+									//一级
+									var onePid = twoElem.data("pid"),
+										oneLen = $('.one-checkboxs-'+onePid+' input[type=checkbox]').length,//所有的一级下的input
+										oneCheckLen = $('.one-checkboxs-'+onePid+' input[type=checkbox]:checked').length,//所有的二级下为checkbox的input
+										oneElem = $('.one-checkboxs-'+onePid).prev().find(".input-one");//一级元素
+									
+									
+									//超级蠢的方法
+									var oneI = oneElem.data("i"),
+										twoI = twoElem.data("i");
+										
+									var thisNum = checkArr.indexOf(data.value);//当前值id索引
+									if(checkBool){
+										if(thisNum==-1){
+											checkArr.push(data.value);
+											var twoNum = checkArr.indexOf(JSON.stringify(twoPid));//twoPid索引
+											if(twoCheckLen>0){
+												if(twoNum==-1){
+													checkArr.push(JSON.stringify(twoPid));
+													var oneNum = checkArr.indexOf(JSON.stringify(onePid));//twoPid索引
+													if(oneCheckLen>0){
+														if(oneNum==-1){
+															checkArr.push(JSON.stringify(onePid));
+														}
+													}
+												}
+											}
+										}
+									}else{
+										if(thisNum>-1){
+											//删除当前值id
+											checkArr.splice(thisNum,1);
+											var oneNum = checkArr.indexOf(JSON.stringify(onePid));//当前值Pid索引
+											
+											if(twoCheckLen==0){
+												if(twoNum>-1){
+													checkArr.push(JSON.stringify(twoPid));
+													var oneNum = checkArr.indexOf(JSON.stringify(onePid));//twoPid索引
+													if(oneCheckLen==0){
+														if(oneNum>-1){
+															checkArr.push(JSON.stringify(onePid));
+														}
+													}
+												}
+											}
+										}
+									}	
+									
+									
+									if(oneLen==oneCheckLen){
+										oneElem.get(0).checked=true;
+									}else{
+										oneElem.get(0).checked=false;
+									}
+									//全选
+									var allCheckLen = $('.item-checkboxs input[type=checkbox]:checked').length;
+									if(allLen==allCheckLen){
+						          		$('#item-all').get(0).checked=true;
+						          	}else{
+						          		$('#item-all').get(0).checked=false;
+						          	}
+								break;
+							}
+							form.render();
+						}
+					});
+					
+					//子菜单选择
+					function sonMenu(_list,_bool){
+						var newArry = [];
+						if(_list.length>0){
+							for(var i=0;i<_list.length;i++){
+								var id = _list[i].id;
+								var thisNum = checkArr.indexOf(JSON.stringify(id));
+								if(_bool){
+									if(thisNum==-1){
+										checkArr.push(JSON.stringify(id));
+									}
+								}else{
+									//删除当前值id
+									if(thisNum>-1){
+										checkArr.splice(thisNum,1);
+									}
+								}
+							}
+						}
+					}
+					
+					
+					//确认提交
+			      	$("#form-submit").on('click',function(){
+			      		var data = "",
+							arr = [];
+						var inputArr = $('.item-checkboxs input:checked');
+						if(inputArr.length>0){
+							for (let i = 0;i<inputArr.length;i++) {
+								arr.push(inputArr[i].value)
+							}
+						}
+						
+						data = arr.join(",");
+			      		admin.req({
+			      			url: setter.apiurl + '/admin/role/nav',
+					  		type: "post",
+					  		data: {
+					  			id: id,
+					  			title: title,
+					  			navs: data
+					  		},
+					  		dataType: "json",
+					  		done: function(res) {
+					  			//关闭当前框架
+					  			if(res.code==1){
+									var index = parent.layer.getFrameIndex(window.name);
+						  			parent.layer.close(index);
+					  			}else{
+					  				layui.layer.msg(res.msg);
+					  			}
+					  		}
+			      		});
+			      	})
+				}
+				
+				//全选
+				form.on('checkbox(item-all)', function(data){
+		          	var id = data.value;
+		          	//这里实现勾选 
+		          	$('.item-checkboxs input[type=checkbox]').each(function(index, item){
+		          		item.checked = data.elem.checked;
+		          	});
+		          	form.render('checkbox');
+		        });
+			})
+		</script>
+	</body>
+</html>

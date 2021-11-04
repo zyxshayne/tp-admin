@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <title>文章类型管理</title>
+  <meta name="renderer" content="webkit">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  <link rel="stylesheet" href="../../layuiadmin/layui/css/layui.css" media="all">
+  <link rel="stylesheet" href="../../layuiadmin/style/admin.css" media="all">
+</head>
+
+<body>
+
+<div class="layui-fluid">
+	<div class="layui-card">
+		<div class="layui-card-header">条件筛选</div>
+		<div class="layui-card-body">
+			<form class="layui-form layuiadmin-card-header-auto">
+				<div class="layui-form-item">
+					<div class="layui-inline">
+						<label class="layui-form-label">类型名称</label>
+						<div class="layui-input-inline">
+							<input type="text" placeholder="请输入类型名称" class="layui-input name">
+						</div>
+					</div>
+					<div class="layui-inline">
+						<button type="submit" class="layui-btn layuiadmin-btn-list search-table" lay-submit lay-filter="LAY-app-contlist-search">
+							<i class="layui-icon layui-icon-search layuiadmin-button-btn"></i> 搜索
+						</button>
+						<button type="reset" class="layui-btn layuiadmin-btn-list layui-btn-primary reset-table">
+							<i class="layui-icon layui-icon-refresh-3 layuiadmin-button-btn"></i> 重置
+						</button>
+					</div>
+				</div>
+			</form>
+		</div>
+	</div>
+</div>
+
+<div class="layui-fluid">
+  <div class="layui-card">
+    <div class="layui-card-body">
+      <table id="table" lay-filter="table"></table>
+    </div>
+  </div>
+</div>
+
+<script type="text/html" id="toolbarDemo">
+  <div class="layui-btn-container">
+    <button class="layui-btn layui-btn-sm" lay-event="addData">新增</button>
+    <button class="layui-btn layui-btn-sm" lay-event="delData">删除选中数目</button>
+  </div>
+</script>
+<script type="text/html" id="edit-table">
+  <a class="layui-btn layui-btn-normal layui-btn-xs" lay-event="edit">编辑</a>
+  <a class="layui-btn layui-btn-danger layui-btn-xs" lay-event="del">删除</a>
+</script>
+<script src="../../layuiadmin/layui/layui.js"></script>
+<script>
+  layui.config({
+    base: '../../layuiadmin/' //静态资源所在路径
+  }).extend({
+    index: 'lib/index' //主入口模块
+  }).use(['index', 'table'], function () {
+    var $ = layui.$,
+      setter = layui.setter,
+      admin = layui.admin,
+      table = layui.table;
+
+		var obj = {
+			token: layui.data('userInfo').token
+		};
+
+//条件筛选
+		$('.search-table').click(function () {
+			obj.name = $('.name').val();
+			roleLoad(obj);
+			return false;
+		});
+		
+    roleLoad(obj);
+
+    //文章日记类型信息加载
+    function roleLoad(_data) {
+      table.render({
+        elem: '#table',
+        url: layui.setter.apiurl + '/ArticleType/get_all', //模拟接口
+        method: 'post',
+        checkbox: true,
+        where: _data,
+        page: true,
+        toolbar: '#toolbarDemo',
+        cols: [
+          [{
+            type: 'checkbox',
+            fixed: 'left',
+            width: 40,
+          }, {
+            field: 'id',
+            width: 60,
+            title: 'id'
+          }, {
+            field: 'name',
+            title: '名称',
+            minWidth: 200,
+          }, {
+            title: '操作',
+            width: 150,
+            align: 'center',
+            fixed: 'right',
+            toolbar: '#edit-table'
+          }]
+        ],
+        text: '对不起，加载出现异常！'
+      });
+    }
+
+    //头工具栏事件
+    table.on('toolbar(table)', function (obj) {
+      var checkStatus = table.checkStatus(obj.config.id);
+      switch (obj.event) {
+        //新增
+        case 'addData':
+          var handleData = {
+            title: '新增文章类型',
+          };
+          handleRole(handleData);
+          break;
+        //多选删除
+        case 'delData':
+          var data = checkStatus.data;
+          if (data.length < 1) {
+            layer.msg('您还没有选中条目');
+          } else {
+            var arr = [];
+            var name_arr = [];
+            for (var i = 0; i < data.length; i++) {
+              arr.push(data[i].id);
+							name_arr.push(data[i].name);
+            }
+            var ids = arr.join(',');
+						var name = name_arr.join(',');
+            var newData = {
+              id: ids,
+							name:name
+            }
+            delRole(newData);
+          }
+          break;
+      }
+      ;
+    });
+    //行工具栏
+    table.on('tool(table)', function (obj) {
+      var lineData = obj.data,
+        layEvent = obj.event;
+      switch (layEvent) {
+        //编辑
+        case 'edit':
+          var handleData = {
+            id: lineData.id,
+            title: '编辑文章类型',
+            type: 1,
+          };
+          handleRole(handleData);
+          break;
+        case 'del':
+          var newData = {
+            id: lineData.id,
+            name: lineData.name,
+          }
+          delRole(newData);
+          break;
+      }
+      ;
+    });
+
+    //文章日记类型(新增,编辑)
+    function handleRole(_data) {
+      var url = 'form/ArticleTypeForm.html';
+      if (_data.id) {
+        url += '?id=' + _data.id;
+      }
+      layer.open({
+        type: 2,
+        title: _data.title,
+        btnAlign: 'r',
+        btn: ['确定', '取消'],
+        area: ['500px', '400px'],
+        content: url,
+        yes: function (index, layero) {
+          //按钮【按钮一】的回调
+          var iframeWindow = window['layui-layer-iframe' + index],
+            submit = layero.find('iframe').contents().find("#formDemo");
+          //监听提交
+          iframeWindow.layui.form.on('submit(formDemo)', function (data) {
+            var field = data.field; //获取提交的字段
+            //id
+            if (_data.id) {
+              field.id = _data.id;
+            }
+            //提交 Ajax 成功后，静态更新表格中的数据
+            admin.req({
+              url: setter.apiurl + '/ArticleType/add_update',
+              type: "post",
+              data: field,
+              dataType: "json",
+              done: function (res) {
+                layer.msg(res.msg);
+                if (res.status == 1) {
+                  layer.close(index); //关闭弹层
+                  //刷新当前框架
+                  roleLoad(obj);
+                }
+              }
+            })
+          })
+          submit.trigger('click');
+        }
+      })
+    }
+
+    //删除文章日记类型
+    function delRole(_data) {
+      layer.confirm('是否确认删除?删除后无法撤回！', {icon: 3, title: '提示'}, function (index) {
+        //do something
+        admin.req({
+          url: setter.apiurl + '/ArticleType/del',
+          type: "post",
+          data: _data,
+          dataType: "json",
+          done: function (res) {
+            layer.msg(res.msg);
+            //刷新当前框架
+            roleLoad(obj);
+          }
+        })
+      });
+    }
+  });
+</script>
+</body>
+
+</html>

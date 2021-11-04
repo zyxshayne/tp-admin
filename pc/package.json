@@ -1,0 +1,23 @@
+{
+  "name": "my-word",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "serve": "vue-cli-service serve",
+    "build": "vue-cli-service build"
+  },
+  "dependencies": {
+    "element-ui": "^2.15.6",
+    "vue": "^2.6.11",
+    "vue-router": "^3.2.0"
+  },
+  "devDependencies": {
+    "@vue/cli-plugin-router": "~4.5.0",
+    "@vue/cli-service": "~4.5.0",
+    "axios": "^0.22.0",
+    "node-sass": "^4.14.1",
+    "sass-loader": "^10.2.0",
+    "vue-template-compiler": "^2.6.11",
+    "zego-express-engine-webrtc": "^2.10.1"
+  }
+}
